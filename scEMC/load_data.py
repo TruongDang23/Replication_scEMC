@@ -45,8 +45,14 @@ def load_data(dataset_info, path=path, prefix="SNARE", top_genes=2000, top_peaks
             
         elif "ATAC" in file_name.upper():
             print(f"Processing {file_name}: Filtering Top Peaks...")
-            epi.pp.select_var_feature(adata, nb_features=top_peaks, show=False, copy=False)
-            adata = adata[:, adata.var.selected].copy()
+            if hasattr(adata.X, 'sum'):
+                counts = np.array(adata.X.sum(axis=0)).flatten()
+            else:
+                counts = np.sum(adata.X, axis=0)
+            
+            # Lấy index của 2000 peaks lớn nhất
+            top_indices = np.argsort(counts)[-top_peaks:]
+            adata = adata[:, top_indices].copy()
         # Lấy ma trận dữ liệu (thường là adata.X)
         # Nếu adata.X là sparse matrix, cần .toarray()
         data_view = adata.X.toarray() if hasattr(adata.X, 'toarray') else adata.X
