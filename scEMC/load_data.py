@@ -38,11 +38,11 @@ def load_data(dataset_info, path=path, top_genes=2000, top_peaks=2000):
         # 2. Lọc Top 2000 Features TRƯỚC KHI chuyển sang ma trận đặc
         if "RNA" in file_name.upper():
             print(f"Processing {file_name}: Filtering HVGs...")
-            sc.pp.normalize_total(adata, target_sum=1e4)
-            sc.pp.log1p(adata)
             sc.pp.highly_variable_genes(adata, n_top_genes=top_genes, flavor="seurat_v3", subset=True)
             # Giữ lại 2000 gene biến thiên nhất
             adata = adata[:, adata.var.highly_variable].copy()
+            sc.pp.normalize_total(adata, target_sum=1e4)
+            sc.pp.log1p(adata)
             
         elif "ATAC" in file_name.upper():
             print(f"Processing {file_name}: Filtering Top Peaks...")
@@ -59,8 +59,8 @@ def load_data(dataset_info, path=path, top_genes=2000, top_peaks=2000):
         data_view = adata.X.toarray() if hasattr(adata.X, 'toarray') else adata.X
 
         # Chuẩn hóa
-        std_view = mm.fit_transform(data_view)
-        X.append(std_view)
+        # std_view = mm.fit_transform(data_view)
+        X.append(data_view)
         
         # Lấy label từ field cell_types (chuyển sang dạng số nếu là dạng chuỗi)
         if dataset_info['label_key'] in adata.obs:
