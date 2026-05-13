@@ -38,6 +38,8 @@ def load_data(dataset_info, path=path, top_genes=2000, top_peaks=2000):
         # 2. Lọc Top 2000 Features TRƯỚC KHI chuyển sang ma trận đặc
         if "RNA" in file_name.upper():
             print(f"Processing {file_name}: Filtering HVGs...")
+            sc.pp.normalize_total(adata, target_sum=1e4)
+            sc.pp.log1p(adata)
             sc.pp.highly_variable_genes(adata, n_top_genes=top_genes, flavor="seurat_v3", subset=True)
             # Giữ lại 2000 gene biến thiên nhất
             adata = adata[:, adata.var.highly_variable].copy()
