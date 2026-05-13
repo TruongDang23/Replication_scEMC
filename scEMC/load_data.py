@@ -5,12 +5,11 @@ import h5py
 import warnings
 warnings.filterwarnings("ignore")
 import scanpy as sc
-import episcanpy as epi
 
 ALL_data = dict(
     #
-    BMNC = {
-            1: 'BMNC', 
+    SNARE = {
+            1: 'SNARE', 
             2: 'd1', 
             'files': ['RNA.h5ad', 'ATAC.h5ad'],
             'label_key': 'cell_type',
@@ -24,9 +23,9 @@ ALL_data = dict(
     )
 
 
-path = './datasets/'
+path = '/content/Replication_scEMC/scEMC/datasets'
 
-def load_data(dataset_info, path=path, prefix="SNARE", top_genes=2000, top_peaks=2000):
+def load_data(dataset_info, path=path, top_genes=2000, top_peaks=2000):
 
     X = []
     labels_list = []
@@ -35,7 +34,7 @@ def load_data(dataset_info, path=path, prefix="SNARE", top_genes=2000, top_peaks
     # 1. Đọc từng file h5ad
     for file_name in dataset_info['files']:
         # Đọc file bằng scanpy
-        adata = sc.read_h5ad(path + '\\' + prefix + '\\' + file_name)
+        adata = sc.read_h5ad(path + '/' + dataset_info[1] + '/' + file_name)
         # 2. Lọc Top 2000 Features TRƯỚC KHI chuyển sang ma trận đặc
         if "RNA" in file_name.upper():
             print(f"Processing {file_name}: Filtering HVGs...")

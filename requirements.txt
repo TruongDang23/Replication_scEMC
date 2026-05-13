@@ -2,3 +2,4 @@ episcanpy
 mkl-service==2.7.0
 munkres==1.1.4
 scanpy==1.12.1
+scikit-misc==0.5.2
