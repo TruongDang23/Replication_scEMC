@@ -4,47 +4,77 @@ from sklearn.preprocessing import MinMaxScaler
 import h5py
 import warnings
 warnings.filterwarnings("ignore")
-
-
+import scanpy as sc
+import episcanpy as epi
 
 ALL_data = dict(
     #
-    BMNC = {1: 'BMNC', 2: 'd1', 'N': 30672, 'K': 27, 'V': 2, 'n_input': [1000,25], 'n_hid': [10,256], 'n_output': 64},
+    BMNC = {
+            1: 'BMNC', 
+            2: 'd1', 
+            'files': ['RNA.h5ad', 'ATAC.h5ad'],
+            'label_key': 'cell_type',
+            'N': 30672, 
+            'K': 27, 
+            'V': 2, 
+            'n_input': [1000,25], 
+            'n_hid': [10,256], 
+            'n_output': 64
+        },
     )
 
 
 path = './datasets/'
 
+def load_data(dataset_info, path=path, prefix="SNARE", top_genes=2000, top_peaks=2000):
 
-def load_data(dataset):
-    data = h5py.File(path + dataset[1] + ".mat")
     X = []
-    Y = []
-    Label = np.array(data['Y']).T
-    Label = Label.reshape(Label.shape[0])
+    labels_list = []
     mm = MinMaxScaler()
-    for i in range(data['X'].shape[1]):
-        diff_view = data[data['X'][0, i]]
-        diff_view = np.array(diff_view, dtype=np.float32).T
-        std_view = mm.fit_transform(diff_view)
+    
+    # 1. Đọc từng file h5ad
+    for file_name in dataset_info['files']:
+        # Đọc file bằng scanpy
+        adata = sc.read_h5ad(path + '\\' + prefix + '\\' + file_name)
+        # 2. Lọc Top 2000 Features TRƯỚC KHI chuyển sang ma trận đặc
+        if "RNA" in file_name.upper():
+            print(f"Processing {file_name}: Filtering HVGs...")
+            sc.pp.highly_variable_genes(adata, n_top_genes=top_genes, flavor="seurat_v3", subset=True)
+            # Giữ lại 2000 gene biến thiên nhất
+            adata = adata[:, adata.var.highly_variable].copy()
+            
+        elif "ATAC" in file_name.upper():
+            print(f"Processing {file_name}: Filtering Top Peaks...")
+            epi.pp.select_var_feature(adata, nb_features=top_peaks, show=False, copy=False)
+            adata = adata[:, adata.var.selected].copy()
+        # Lấy ma trận dữ liệu (thường là adata.X)
+        # Nếu adata.X là sparse matrix, cần .toarray()
+        data_view = adata.X.toarray() if hasattr(adata.X, 'toarray') else adata.X
+
+        # Chuẩn hóa
+        std_view = mm.fit_transform(data_view)
         X.append(std_view)
-        Y.append(Label)
-
-    size = len(Y[0])
+        
+        # Lấy label từ field cell_types (chuyển sang dạng số nếu là dạng chuỗi)
+        if dataset_info['label_key'] in adata.obs:
+            # Chuyển category sang mã số (0, 1, 2...) để training
+            labels = adata.obs[dataset_info['label_key']].astype('category').cat.codes.values
+            labels_list.append(labels)
+    
+    # Giả sử Label của các view là giống nhau cho cùng 1 tập tế bào
+    # Chúng ta lấy label của view đầu tiên làm chuẩn
+    Label = labels_list[0]
+    
+    size = X[0].shape[0]
     view_num = len(X)
-
-    index = [i for i in range(size)]
+    
+    # 2. Shuffle (Giữ nguyên logic của scEMC)
+    index = np.arange(size)
     np.random.shuffle(index)
+    
+    Y = []
     for v in range(view_num):
-        X[v] = X[v][index]
-        Y[v] = Y[v][index]
-
-    for v in range(view_num):
-        X[v] = torch.from_numpy(X[v])
+        X[v] = torch.from_numpy(X[v][index].astype(np.float32))
+        Y.append(Label[index]) 
 
     return X, Y
-
-
-
-
-
