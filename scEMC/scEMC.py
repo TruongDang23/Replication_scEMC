@@ -9,7 +9,7 @@ from preprocess import read_dataset, normalize
 from utils import *
 
 def parse_arguments(data_para):
-    parser = argparse.ArgumentParser(description='scEMC')
+    parser = argparse.ArgumentParser(description='scEMC')   
     parser.add_argument('--n_clusters', default=data_para['K'], type=int)
     parser.add_argument('--lr', default=1, type=float)
     parser.add_argument('-el1', '--encodeLayer1', nargs='+', default=[256, 64, 32, 8])

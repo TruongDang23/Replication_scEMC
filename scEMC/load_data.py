@@ -42,35 +42,51 @@ def load_data(dataset_info, path=path, top_genes=2000, top_peaks=2000):
         # ================= RNA =================
         if "RNA" in file_name.upper():
 
-            print(f"Selecting top {top_genes} HVGs")
-
-            # KHÔNG copy
-            sc.pp.highly_variable_genes(
-                adata,
-                n_top_genes=top_genes,
-                flavor="seurat_v3",
-                subset=False
-            )
-
-            hvg_mask = adata.var["highly_variable"].values
-
-            # Slice trực tiếp
-            adata = adata[:, hvg_mask]
-
-            # normalize sau khi giảm chiều
-            sc.pp.normalize_total(adata, target_sum=1e4)
-            sc.pp.log1p(adata)
+            # ── 2. Bộ lọc Đặc trưng cho scRNA-seq (HVG) ──────────────────────────────
+            if 'highly_variable' in adata.var.columns:
+                print(f"[RNA] Tìm thấy cột highly_variable sẵn có.")
+                if adata.var['highly_variable'].sum() > top_genes and 'dispersions_norm' in adata.var.columns:
+                    hvg_subset = adata.var[adata.var['highly_variable'] == True]
+                    top_genes = hvg_subset.nlargest(top_genes, 'dispersions_norm').index
+                    adata = adata[:, top_genes].copy()
+                else:
+                    # Nếu không có cột dispersion hoặc số lượng vừa bằng, lấy các gene được đánh dấu True
+                    # Nếu số lượng gene lớn hơn top_n_rna mà không có dispersion, lấy top_n_rna gene đầu tiên của tập True
+                    true_genes = adata.var_names[adata.var['highly_variable'] == True]
+                    adata = adata[:, true_genes[:top_genes]].copy()
+            else:
+                print(f"[Warning] Không thấy nhãn highly_variable trong RNA, tự động lấy {top_genes} gen đầu.")
+                adata = adata[:, :top_genes].copy()
+            
+            print(f"[RNA] Sau khi lọc lấy đặc trưng biến thiên: {adata.shape}")
 
         # ================= ATAC / Protein =================
         elif "ATAC" in file_name.upper():
 
-            print(f"Selecting top {top_peaks} peaks")
-
-            counts = np.asarray(adata.X.sum(axis=0)).ravel()
-
-            top_indices = np.argpartition(counts, -top_peaks)[-top_peaks:]
-
-            adata = adata[:, top_indices]
+            # ── 3. Bộ lọc Đặc trưng cho scATAC-seq (Sửa đổi cho chuẩn Raw Count) ────
+            # Vì file ATAC.h5ad của bạn hiện tại có 2,016 features, chúng ta cần ép nó về đúng 2,000 (top_n_atac)
+            if 'highly_variable' in adata.var.columns:
+                print(f"[ATAC] Tìm thấy cột highly_variable từ bước xử lý phương sai nhị phân.")
+                
+                # Sắp xếp và lọc lấy đúng top_n_atac dựa trên cột phương sai thủ công 'binary_variance' mà ta đã lưu
+                if 'binary_variance' in adata.var.columns:
+                    hvp_subset = adata.var[adata.var['highly_variable'] == True]
+                    top_peaks = hvp_subset.nlargest(top_peaks, 'binary_variance').index
+                    adata = adata[:, top_peaks].copy()
+                else:
+                    # Cắt lấy đúng số lượng cột yêu cầu để tránh lệch chiều mạng Neural
+                    true_peaks = adata.var_names[adata.var['highly_variable'] == True]
+                    adata = adata[:, true_peaks[:top_peaks]].copy()
+            else:
+                # Nhánh dự phòng an toàn bằng phương sai nhị phân (chứ không dùng tổng sum nữa)
+                print(f"[Warning] Không tìm thấy cột highly_variable trong ATAC. Tính lại phương sai nhị phân...")
+                X_binary = (adata.X > 0).astype(np.float32)
+                p = np.array(X_binary.mean(axis=0)).flatten()
+                variances = p * (1.0 - p)
+                top_indices = np.argpartition(variances, -top_peaks)[-top_peaks:]
+                adata = adata[:, top_indices].copy()
+                
+            print(f"[ATAC] Sau khi lọc lấy đặc trưng biến thiên: {adata.shape}")
 
         # ================= Sparse -> Dense =================
 
