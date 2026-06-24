@@ -68,7 +68,16 @@ def main():
     # Prepare data
     adata1 = prepare_data(X[0])
     adata2 = prepare_data(X[1], size_factors=False, normalize_input=False, logtrans_input=False)
-    y = labels
+
+    # filter_cells trong normalize() có thể loại bỏ các cell khác nhau giữa RNA và ATAC.
+    # obs_names là string index gốc của cell (e.g. "0", "42", ...) → lấy intersection để đồng bộ.
+    common_cells = adata1.obs_names.intersection(adata2.obs_names)
+    print(f"[Intersection] {len(common_cells)} cells chung sau normalize (RNA: {adata1.n_obs}, ATAC: {adata2.n_obs})")
+    if len(common_cells) == 0:
+        raise ValueError("Không có cell nào chung giữa RNA và ATAC sau normalize. Kiểm tra lại dữ liệu.")
+    adata1 = adata1[common_cells].copy()
+    adata2 = adata2[common_cells].copy()
+    y = labels[common_cells.astype(int)]
     input_size1 = adata1.n_vars
     input_size2 = adata2.n_vars
 
