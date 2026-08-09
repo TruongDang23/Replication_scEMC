@@ -98,8 +98,8 @@ def main():
 
     t0 = time()
     if args.ae_weights is None:
-        model.pretrain_autoencoder(X1=adata1.X, X_raw1=adata1.raw.X, sf1=adata1.obs.size_factors,
-                                   X2=adata2.X, X_raw2=adata2.raw.X, sf2=adata2.obs.size_factors,
+        model.pretrain_autoencoder(X1=adata1.X, X_raw1=adata1.raw.X, sf1=adata1.obs.size_factors.values,
+                                   X2=adata2.X, X_raw2=adata2.raw.X, sf2=adata2.obs.size_factors.values,
                                    batch_size=args.batch_size,
                                    epochs=args.pretrain_epochs, ae_weights=args.ae_weight_file)
     else:
@@ -122,8 +122,8 @@ def main():
         print("n_cluster is defined as " + str(args.n_clusters))
         n_clusters = args.n_clusters
 
-    y_pred, _, _, _ = model.fit(X1=adata1.X, X_raw1=adata1.raw.X, sf1=adata1.obs.size_factors,
-                                X2=adata2.X, X_raw2=adata2.raw.X, sf2=adata2.obs.size_factors, y=y,
+    y_pred, _, _, _ = model.fit(X1=adata1.X, X_raw1=adata1.raw.X, sf1=adata1.obs.size_factors.values,
+                                X2=adata2.X, X_raw2=adata2.raw.X, sf2=adata2.obs.size_factors.values, y=y,
                                 n_clusters=n_clusters, batch_size=args.batch_size, num_epochs=args.maxiter,
                                 update_interval=args.update_interval, tol=args.tol, lr=args.lr,
                                 save_dir=args.save_dir, lam1=args.lam1, lam2=args.lam2)
