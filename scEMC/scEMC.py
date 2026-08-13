@@ -25,6 +25,13 @@ def set_seed(seed):
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    # TransformerEncoder trên CUDA mặc định chọn kernel attention flash/mem-efficient
+    # có backward non-deterministic (atomic add) → ép dùng kernel math:
+    # cùng phép toán, chỉ khác cách cài đặt, và deterministic.
+    if hasattr(torch.backends.cuda, 'enable_flash_sdp'):
+        torch.backends.cuda.enable_flash_sdp(False)
+        torch.backends.cuda.enable_mem_efficient_sdp(False)
+        torch.backends.cuda.enable_math_sdp(True)
     try:
         torch.use_deterministic_algorithms(True, warn_only=True)
     except (AttributeError, TypeError):
