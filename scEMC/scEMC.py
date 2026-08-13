@@ -1,5 +1,6 @@
 import argparse
 import os
+import random
 import numpy as np
 import torch
 from time import time
@@ -7,6 +8,28 @@ import load_data as loader
 from network import scEMC
 from preprocess import read_dataset, normalize
 from utils import *
+
+def set_seed(seed):
+    """Cấu hình random seed toàn cục cho random / numpy / torch để tái lập kết quả.
+
+    Seed toàn cục phủ mọi nguồn ngẫu nhiên hiện có của pipeline:
+    np.random.shuffle (load_data), khởi tạo trọng số + GaussianNoise + RandomSampler (torch),
+    KMeans của sklearn (dùng RNG toàn cục của numpy khi không có random_state).
+    """
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    # cuBLAS cần biến này để matmul trên GPU deterministic (phải đặt trước khi khởi tạo CUDA context)
+    os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    try:
+        torch.use_deterministic_algorithms(True, warn_only=True)
+    except (AttributeError, TypeError):
+        # torch < 1.11 không có warn_only
+        pass
 
 def parse_arguments(data_para):
     parser = argparse.ArgumentParser(description='scEMC')   
@@ -49,6 +72,7 @@ def parse_arguments(data_para):
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--lam1', default=1, type=float)
     parser.add_argument('--lam2', default=1, type=float)
+    parser.add_argument('--seed', default=42, type=int, help='Global random seed for reproducibility')
     return parser.parse_args()
 
 def prepare_data(dataset, size_factors=True, normalize_input=True, logtrans_input=True):
@@ -63,6 +87,8 @@ def main():
     for i_d in my_data_dic:
         data_para = my_data_dic[i_d]
     args = parse_arguments(data_para)
+    set_seed(args.seed)
+    print(f"[Seed] Global random seed = {args.seed}")
     X, Y = loader.load_data(args.dataset)
     labels = Y[0].copy().astype(np.int32)
     # Prepare data
