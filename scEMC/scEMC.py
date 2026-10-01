@@ -97,7 +97,7 @@ def main():
     args = parse_arguments(data_para)
     set_seed(args.seed)
     print(f"[Seed] Global random seed = {args.seed}")
-    X, Y = loader.load_data(args.dataset)
+    X, Y, meta = loader.load_data(args.dataset, return_meta=True)
     labels = Y[0].copy().astype(np.int32)
     # Prepare data
     adata1 = prepare_data(X[0])
