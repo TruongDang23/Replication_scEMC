@@ -217,6 +217,7 @@ class scEMC(nn.Module):
         Zdata = self.encodeBatch(X1, X2, batch_size=batch_size)
         #latent
         self.y_pred = kmeans.fit_predict(Zdata.data.cpu().numpy())
+        self.Zdata_pred = Zdata   # latent đã sinh ra self.y_pred, dùng để export .npz
         self.y_pred_last = self.y_pred
         self.mu.data.copy_(torch.Tensor(kmeans.cluster_centers_))
 
@@ -239,6 +240,7 @@ class scEMC(nn.Module):
                 Zdata = self.encodeBatch(X1, X2, batch_size=batch_size)
                 dist, _ = self.kmeans_loss(Zdata)
                 self.y_pred = torch.argmin(dist, dim=1).data.cpu().numpy()
+                self.Zdata_pred = Zdata   # latent đã sinh ra self.y_pred, dùng để export .npz
                 if y is not None:
                     #acc2 = np.round(cluster_acc(y, self.y_pred), 5)
                     final_nmi = nmi = np.round(metrics.normalized_mutual_info_score(y, self.y_pred), 4)

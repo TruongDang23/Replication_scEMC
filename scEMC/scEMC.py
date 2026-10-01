@@ -6,6 +6,7 @@ from time import time
 import load_data as loader
 from network import scEMC
 from preprocess import read_dataset, normalize
+from npz_export import save_embedding
 from utils import *
 
 def parse_arguments(data_para):
@@ -63,7 +64,7 @@ def main():
     for i_d in my_data_dic:
         data_para = my_data_dic[i_d]
     args = parse_arguments(data_para)
-    X, Y = loader.load_data(args.dataset)
+    X, Y, meta = loader.load_data(args.dataset, return_meta=True)
     labels = Y[0].copy().astype(np.int32)
     # Prepare data
     adata1 = prepare_data(X[0])
@@ -78,6 +79,9 @@ def main():
     adata1 = adata1[common_cells].copy()
     adata2 = adata2[common_cells].copy()
     y = labels[common_cells.astype(int)]
+    # Barcode gốc + tên cell type, cùng thứ tự hàng với adata1/adata2 (dùng để export .npz)
+    cell_ids = meta['cell_ids'][common_cells.astype(int)]
+    y_true_names = meta['cell_types'][common_cells.astype(int)]
     input_size1 = adata1.n_vars
     input_size2 = adata2.n_vars
 
@@ -128,6 +132,21 @@ def main():
                                 update_interval=args.update_interval, tol=args.tol, lr=args.lr,
                                 save_dir=args.save_dir, lam1=args.lam1, lam2=args.lam2)
     print('Total time: %d seconds.' % int(time() - t0))
+
+    # Export .npz cho UMAP (contract trong EXPORT_NPZ_GUIDE.md).
+    # emb = đúng latent mà lần gom cụm cuối (argmin kmeans_loss) nhận vào để sinh y_pred.
+    save_embedding(
+        out_path   = os.path.join(args.save_dir, f"scEMC_{args.name}.npz"),
+        emb        = model.Zdata_pred.cpu().numpy(),
+        cell_ids   = cell_ids,
+        y_true     = y_true_names,
+        y_pred     = y_pred,
+        method     = "scEMC",
+        ari        = metrics.adjusted_rand_score(y_true_names, y_pred),
+        nmi        = metrics.normalized_mutual_info_score(y_true_names, y_pred),
+        emb_source = "h00 = cat[encoder1(x1), extract_layers(cat[encoder1(x1), encoder2(x2)])]",
+        checkpoint = "final",
+    )
 
     if args.prediction_file:
         y_pred_ = best_map(y, y_pred) - 1

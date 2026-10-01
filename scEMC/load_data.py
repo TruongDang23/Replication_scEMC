@@ -14,7 +14,8 @@ ALL_data = dict(
             2: 'd1', 
             'files': ['RNA.h5ad', 'ATAC.h5ad'],
             'label_key': 'cell_type',
-            'N': 30672, 
+            'export_label_key': 'Group',   # cột tên cell type dùng làm y_true khi export .npz
+            'N': 30672,
             'K': 27, 
             'V': 2, 
             'n_input': [1000,25], 
@@ -26,10 +27,12 @@ ALL_data = dict(
 
 path = '/content/Replication_scEMC/scEMC/datasets'
 
-def load_data(dataset_info, path=path, top_genes=2000, top_peaks=2000):
+def load_data(dataset_info, path=path, top_genes=2000, top_peaks=2000, return_meta=False):
 
     X = []
     labels_list = []
+    obs_names_list = []   # barcode gốc của từng file, chỉ dùng để export .npz
+    cell_types = None     # tên cell type (str), chỉ dùng để export .npz
 
     for file_name in dataset_info['files']:
 
@@ -111,6 +114,18 @@ def load_data(dataset_info, path=path, top_genes=2000, top_peaks=2000):
 
             labels_list.append(labels)
 
+        # ================= Barcode + tên cell type (export .npz) =================
+
+        obs_names_list.append(adata.obs_names.to_numpy().astype(str))
+        if cell_types is None:
+            name_key = dataset_info.get('export_label_key', 'Group')
+            if name_key not in adata.obs:
+                print(f"[Warning] Không có cột '{name_key}' trong {file_name}, "
+                      f"dùng '{dataset_info['label_key']}' làm y_true khi export .npz.")
+                name_key = dataset_info['label_key']
+            if name_key in adata.obs:
+                cell_types = adata.obs[name_key].astype(str).to_numpy()
+
         # giải phóng RAM sớm
         del adata
         del data_view
@@ -129,4 +144,20 @@ def load_data(dataset_info, path=path, top_genes=2000, top_peaks=2000):
         X[v] = X[v][index]
         Y.append(Label[index])
 
-    return X, Y
+    if not return_meta:
+        return X, Y
+
+    # Các view được ghép theo vị trí hàng → barcode phải trùng khớp giữa các file
+    for v in range(1, view_num):
+        if not np.array_equal(obs_names_list[0], obs_names_list[v]):
+            print(f"[Warning] obs_names của {dataset_info['files'][v]} khác {dataset_info['files'][0]} "
+                  f"(khác tập cell hoặc khác thứ tự) — các view đang được ghép theo vị trí hàng.")
+    if cell_types is None:
+        raise ValueError("Không tìm thấy cột tên cell type để làm y_true khi export .npz.")
+
+    # Shuffle cùng `index` với X, Y để giữ đúng thứ tự tế bào
+    meta = {
+        'cell_ids': obs_names_list[0][index],
+        'cell_types': cell_types[index],
+    }
+    return X, Y, meta
