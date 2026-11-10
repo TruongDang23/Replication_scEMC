@@ -7,7 +7,7 @@ from time import time
 import load_data as loader
 from network import scEMC
 from preprocess import read_dataset, normalize
-from npz_export import save_embedding
+from npz_export import save_embedding, save_cluster_csv
 from utils import *
 
 def set_seed(seed):
@@ -179,6 +179,12 @@ def main():
         nmi        = metrics.normalized_mutual_info_score(y_true_names, y_pred),
         emb_source = "h00 = cat[encoder1(x1), extract_layers(cat[encoder1(x1), encoder2(x2)])]",
         checkpoint = "final",
+    )
+
+    save_cluster_csv(
+        out_path = os.path.join(args.outdir, f'{args.method_name}_{args.dataset_name}_clusters.csv'),
+        cell_ids = cell_ids,
+        y_pred   = y_pred
     )
 
     if args.prediction_file:
