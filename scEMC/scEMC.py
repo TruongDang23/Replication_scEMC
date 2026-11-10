@@ -182,7 +182,7 @@ def main():
     )
 
     save_cluster_csv(
-        out_path = os.path.join(args.outdir, f'{args.method_name}_{args.dataset_name}_clusters.csv'),
+        out_path = os.path.join(args.save_dir, f"scEMC_{args.name}_clusters.csv"),
         cell_ids = cell_ids,
         y_pred   = y_pred
     )
